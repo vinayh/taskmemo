@@ -1,34 +1,34 @@
-# dependencies (bun install)
-node_modules
+# Python
+__pycache__/
+*.py[oc]
+*$py.class
+build/
+dist/
+wheels/
+.venv/
+venv/
+*.egg-info/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
 
-# output
-out
-dist
-*.tgz
+# uv
+# Note: .python-version and uv.lock ARE checked in for reproducibility.
 
-# code coverage
-coverage
-*.lcov
-
-# logs
-logs
-_.log
-report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
-
-# dotenv environment variable files
+# dotenv
 .env
-.env.development.local
-.env.test.local
-.env.production.local
 .env.local
+.env.*.local
 
-# caches
-.eslintcache
-.cache
-*.tsbuildinfo
+# Local Claude Code MCP config files. Don't bundle credentials or config
+# specific to a user's task-source setup.
+.mcp.json
+*-mcp.json
 
-# IntelliJ based IDEs
-.idea
+# Local system prompt. Users start from prompt.example.md and customize.
+prompt.md
 
-# Finder (MacOS) folder config
+# OS
 .DS_Store
+.idea/
+.vscode/
