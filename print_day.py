@@ -52,31 +52,28 @@ class Brief:
     remaining_tasks: list[RemainingTask]
 
 
-# ===========================================================================
-# CONFIGURE FOR YOUR TASK SYSTEM
-# ===========================================================================
-# This script is invariant of which task system / MCP server you use:
+# ---------------------------------------------------------------------------
+# Task-system config (env-driven; both required)
+# ---------------------------------------------------------------------------
+# This script is invariant of which task system / MCP server you use. The
+# two task-system-specific bits live entirely in env vars; the script errors
+# loudly if either is missing.
 #
-# - MCP_TOOL is the fully-qualified MCP tool name, in the form
-#   "mcp__<server>__<tool>". Set it via the TASKMEMO_MCP_TOOL env var, or
-#   edit the default here. The server must be reachable to `claude -p`
-#   (project `.mcp.json`, user-level config, or via TASKMEMO_MCP_CONFIG).
+# - TASKMEMO_MCP_TOOL: the fully-qualified MCP tool name, "mcp__<server>__<tool>".
+#   The server must be reachable to `claude -p` (project `.mcp.json`,
+#   user-level config, or via TASKMEMO_MCP_CONFIG, see _call_claude_once).
 #
-# - The system prompt lives in a separate file (`prompt.md` at the repo
-#   root by default; override with TASKMEMO_PROMPT_FILE). The file is
-#   passed verbatim to `claude --system-prompt`. A starting template
-#   sits in `prompt.example.md`. You hardcode your tool name in the prompt
-#   text; the script does not template it for you.
+# - TASKMEMO_PROMPT_FILE: path to the system prompt file. Relative paths
+#   resolve against this repo's root. Contents are passed verbatim to
+#   `claude --system-prompt`; a starting template sits in `prompt.example.md`.
+#   You hardcode your tool name in the prompt text; the script does not
+#   template it for you.
 
 MCP_TOOL = os.environ.get("TASKMEMO_MCP_TOOL")
 
 PROMPT_FILE = os.environ.get("TASKMEMO_PROMPT_FILE")
 
 USER_PROMPT = "Fetch today's tasks and emit the curated brief JSON."
-
-# ===========================================================================
-# End of user-tunable config.
-# ===========================================================================
 
 
 def _load_system_prompt() -> str:
@@ -102,9 +99,9 @@ def _load_system_prompt() -> str:
 def _require_mcp_tool() -> str:
     if not MCP_TOOL:
         raise RuntimeError(
-            "MCP_TOOL is not configured. Set TASKMEMO_MCP_TOOL (e.g. "
-            "'mcp__myserver__list_tasks') or edit the MCP_TOOL constant in "
-            "print_day.py."
+            "TASKMEMO_MCP_TOOL is not set. Set it in your .env (or shell env) "
+            "to the fully-qualified MCP tool name "
+            "(e.g. 'mcp__myserver__list_tasks')."
         )
     return MCP_TOOL
 

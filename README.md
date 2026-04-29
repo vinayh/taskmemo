@@ -75,10 +75,9 @@ The M02 Pro pairs over BLE on macOS:
    the first time the script tries to connect; or pre-add the terminal
    manually).
 
-If a print fails or cuts off mid-stream, **power-cycle the printer before
-retrying**. The firmware accumulates BLE buffer state from failed runs that a
-reboot clears. Don't keep adjusting config knobs assuming the previous run
-left it clean.
+If a print fails or cuts off mid-stream, try power-cycling the printer,
+as the firmware can sometimes accumulate a buffer state from
+failed runs that is cleared by rebooting.
 
 ## Running
 
@@ -111,7 +110,7 @@ what was just printed (override with `--save-png /elsewhere.png`).
 
 | Var | Default | Purpose |
 |---|---|---|
-| `TASKMEMO_MCP_TOOL` | unset (required) | MCP tool to call. Override here or edit `MCP_TOOL` in `print_day.py`. |
+| `TASKMEMO_MCP_TOOL` | unset (required) | MCP tool to call (e.g. `mcp__myserver__list_tasks`). |
 | `TASKMEMO_PROMPT_FILE` | unset (required) | Path to the system prompt file. Relative paths resolve against the repo root. |
 | `TASKMEMO_MCP_CONFIG` | unset | Path or inline JSON for an isolated MCP config (passed to `claude --strict-mcp-config --mcp-config`). Strongly recommended; see Setup above. |
 | `CURATE_MODEL` | `opus` | Claude model alias for the curation step. |
@@ -119,13 +118,20 @@ what was just printed (override with `--save-png /elsewhere.png`).
 | `PHOMEMO_CHUNK_SIZE` | `mtu - 3` | Bytes per BLE write. Smaller is gentler on the printer's per-write buffer. |
 | `PHOMEMO_CHUNK_DELAY_MS` | `40` | Delay between chunks. Larger gives more buffer-drain headroom but slower transmission. |
 
+## Tested with
+
+- macOS (CoreBluetooth via Bleak). Linux/Windows are unverified; Bleak supports both, but the BLE pacing and reconnect quirks documented below were only observed on macOS.
+- Phomemo M02 Pro (300 DPI, 53 mm paper, 560 printable dots = 70 bytes/line). Other Phomemo models in the M02 family use the same ESC/POS protocol but different widths: M02 / M02 Pro = 384 dots (48 bytes/line), M02S = 576 dots (72 bytes/line per phomemo-cli), M03 = 832 dots (104 bytes/line). To target a different model you'd change `PRINT_WIDTH` near the top of `print_day.py`.
+- Python 3.14 (pinned in `.python-version`). 3.13 also worked during the migration.
+- Pillow 12, Bleak 3 (locked in `uv.lock`).
+
 ## Troubleshooting
 
 - **"BLE device 'M02 Pro' not found"**: printer off / out of range, or terminal lacks Bluetooth permission. Check System Settings then Privacy & Security then Bluetooth.
 - **"Peer removed pairing information"**: stale pairing on macOS. System Settings then Bluetooth, click (i) next to M02 Pro, then Forget This Device, and re-run. The script will trigger a fresh pair.
 - **Print starts then cuts off**: printer buffer state. Power-cycle the printer and retry.
 - **"TASKMEMO_PROMPT_FILE is not set"** or **"System prompt file not found"**: set `TASKMEMO_PROMPT_FILE` in your `.env` to the path of your prompt file. Copy `prompt.example.md` to `prompt.md` if you don't have one yet.
-- **"MCP_TOOL is not configured"**: set `TASKMEMO_MCP_TOOL` or edit the constant in `print_day.py`.
+- **"TASKMEMO_MCP_TOOL is not set"**: add it to your `.env` (or shell env) as the fully-qualified MCP tool name, e.g. `mcp__myserver__list_tasks`.
 - **Curate returns an empty brief / hangs for minutes**: the MCP server isn't responding. Most often this is a credential issue at the MCP server's command (e.g. if it's wrapped in `op run`, your 1Password session has expired; run `op signin` to refresh). Could also be that `TASKMEMO_MCP_CONFIG` isn't pointing where you think, or the server isn't registered with Claude Code at all.
 
 ## Layout
