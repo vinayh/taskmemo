@@ -1,8 +1,7 @@
 # taskmemo
 
 Daily task printout for a Phomemo M02 Pro thermal printer. `uv` project
-(`pyproject.toml`, Python 3.14). Single source file: `print_day.py`. Runs via
-`uv run print_day.py`.
+(`pyproject.toml`, Python 3.14). Runs via `uv run print_day.py`.
 
 The script is task-system-agnostic. It calls one MCP tool to fetch tasks,
 then asks Claude to curate them per a user-supplied system prompt. There's
@@ -11,24 +10,42 @@ provided explicitly (env var or repo-level file). This is on purpose.
 
 ## Architecture
 
-`print_day.py` is the whole project. It does four things in sequence:
+Three Python modules, split at the natural seams:
 
-1. **Curate**. Spawn `claude -p` with `--allowedTools <MCP_TOOL>` and the
-   contents of `prompt.md` (or `$TASKMEMO_PROMPT_FILE`) as the system
-   prompt. Claude calls the configured tool, then emits a JSON brief
-   matching the script's schema. Output shape is enforced by `--json-schema`.
-   Result fields: top 3 to 5 picks (priority + one-line rationale) plus
-   the full remaining task list.
-2. **Render**. Pillow draws to a 560-px-wide grayscale canvas using bundled
-   Inter Regular + Bold TTFs, then thresholds to 1-bit. Layout has a date
-   header, a numbered TOP block, and a checkbox-prefixed ALL TASKS block.
-3. **Encode**. Convert the 1-bit image to ESC/POS raster bytes, matching
-   `vivier/phomemo-tools`'s reference. Header is `ESC @` then `ESC a 0x01`
-   (center align) then the Phomemo proprietary prefix.
-4. **Print**. Connect via Bleak BLE GATT to characteristic `0xff02` and
-   write the encoded bytes in chunks with inter-chunk pacing.
+- **`phomemo.py`** — standalone Phomemo M02 Pro driver. Public API:
+  `PRINT_WIDTH`, `encode_escpos(image)`, `print_image(image, ...)`,
+  `print_bytes(data, ...)`. Depends only on Pillow + Bleak; knows nothing
+  about Claude, tasks, or the rest of this project. Can be lifted into
+  another project unchanged.
+- **`render.py`** — Pillow rendering. Owns the `Brief` / `TopPick` /
+  `RemainingTask` data classes and `render(brief) -> Image`. Imports
+  `PRINT_WIDTH` from `phomemo` so the canvas size matches the printer.
+- **`print_day.py`** — the orchestrator and CLI. Owns `curate()`, the
+  `OUTPUT_SCHEMA` / system-prompt loading, and `main()`. Calls
+  `render.render` then `phomemo.print_image`.
 
-## Critical knowledge for any change to print_day.py
+End-to-end the pipeline still does four things in sequence:
+
+1. **Curate** (`print_day.py`). Spawn `claude -p` with
+   `--allowedTools <MCP_TOOL>` and the contents of `prompt.md` (or
+   `$TASKMEMO_PROMPT_FILE`) as the system prompt. Claude calls the
+   configured tool, then emits a JSON brief matching the script's schema.
+   Output shape is enforced by `--json-schema`. Result fields: top 3 to 5
+   picks (priority + one-line rationale) plus the full remaining task list.
+2. **Render** (`render.py`). Pillow draws to a 560-px-wide grayscale
+   canvas using bundled Inter Regular + Bold TTFs, then thresholds to
+   1-bit. Layout has a date header, a numbered TOP block, and a
+   checkbox-prefixed ALL TASKS block.
+3. **Encode** (`phomemo.encode_escpos`). Convert the 1-bit image to
+   ESC/POS raster bytes, matching `vivier/phomemo-tools`'s reference.
+   Header is `ESC @` then `ESC a 0x01` (center align) then the Phomemo
+   proprietary prefix.
+4. **Print** (`phomemo.print_image`). Connect via Bleak BLE GATT to
+   characteristic `0xff02` and write the encoded bytes in chunks with
+   inter-chunk pacing. Bleak is lazy-imported inside `_print_async` so
+   `--dry-run` works on hosts without a Bluetooth backend.
+
+## Critical knowledge (lives in phomemo.py)
 
 ### Width is 560 pixels, not 384
 

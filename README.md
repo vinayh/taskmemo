@@ -117,11 +117,13 @@ what was just printed (override with `--save-png /elsewhere.png`).
 | `PHOMEMO_DEVICE_NAME` | `M02 Pro` | BLE local name to scan for. |
 | `PHOMEMO_CHUNK_SIZE` | `mtu - 3` | Bytes per BLE write. Smaller is gentler on the printer's per-write buffer. |
 | `PHOMEMO_CHUNK_DELAY_MS` | `40` | Delay between chunks. Larger gives more buffer-drain headroom but slower transmission. |
+| `PRINT_DEBUG` | unset | If set to any non-empty value, enables verbose BLE / print logging (same effect as `--debug`). |
+| `TASKMEMO_CLAUDE_TIMEOUT` | `120` | Seconds before the `claude -p` curate call is killed. Bump if your MCP server is slow to start. |
 
 ## Tested with
 
 - macOS (CoreBluetooth via Bleak). Linux/Windows are unverified; Bleak supports both, but the BLE pacing and reconnect quirks documented below were only observed on macOS.
-- Phomemo M02 Pro (300 DPI, 53 mm paper, 560 printable dots = 70 bytes/line). Other Phomemo models in the M02 family use the same ESC/POS protocol but different widths: M02 / M02 Pro = 384 dots (48 bytes/line), M02S = 576 dots (72 bytes/line per phomemo-cli), M03 = 832 dots (104 bytes/line). To target a different model you'd change `PRINT_WIDTH` near the top of `print_day.py`.
+- Phomemo M02 Pro (300 DPI, 53 mm paper, 560 printable dots = 70 bytes/line). Other Phomemo models in the M02 family use the same ESC/POS protocol but different widths: M02 / M02 Pro = 384 dots (48 bytes/line), M02S = 576 dots (72 bytes/line per phomemo-cli), M03 = 832 dots (104 bytes/line). To target a different model you'd change `PRINT_WIDTH` near the top of `phomemo.py`.
 - Python 3.14 (pinned in `.python-version`). 3.13 also worked during the migration.
 - Pillow 12, Bleak 3 (locked in `uv.lock`).
 
@@ -137,7 +139,9 @@ what was just printed (override with `--save-png /elsewhere.png`).
 ## Layout
 
 ```
-print_day.py        # everything: curate, render, encode, print
+print_day.py        # entrypoint: curate via Claude, then orchestrate render + print
+render.py           # Brief data classes + Pillow rendering -> PIL.Image
+phomemo.py          # standalone Phomemo M02 Pro driver (encode_escpos, print_image)
 prompt.example.md   # checked-in template for the system prompt
 prompt.md           # your customized prompt (gitignored)
 .env.example        # checked-in template for env vars
@@ -147,3 +151,8 @@ pyproject.toml      # deps + Python version
 uv.lock             # checked-in lockfile
 .python-version     # checked-in (3.14)
 ```
+
+`phomemo.py` is fully standalone — it depends only on Pillow + Bleak and
+can be lifted into another project as-is. `render.py` only depends on
+Pillow + `phomemo.PRINT_WIDTH`. `print_day.py` is the only file that
+knows about Claude or MCP.
